@@ -15,3 +15,4 @@ This mini project explores the use of *ESP32 microcontrollers* to control and co
 - Arduino IDE / PlatformIO
 - Python
 - OpenCV
+

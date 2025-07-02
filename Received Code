@@ -1,0 +1,105 @@
+#include <esp_now.h> 
+#include <WiFi.h> 
+ 
+#define LED_PIN 4 // Built-in LED on ESP32-CAM (Flash LED) 
+ 
+// Structure for incoming coordinate data 
+typedef struct struct_message { 
+float current_x; 
+float current_y; 
+float target_x; 
+float target_y; 
+} struct_message; 
+ 
+struct_message incomingData; 
+ 
+// Motor speed output 
+    
+  
+int motor1_speed = 0; 
+int motor2_speed = 0; 
+ 
+// Function to calculate direction and control motors 
+void moveToTarget(float cx, float cy, float tx, float ty) { 
+float dx = tx - cx; 
+float dy = ty - cy; 
+ 
+Serial.printf("Current: (%.2f, %.2f), Target: (%.2f, %.2f)\n", cx, cy, tx, ty); 
+ 
+// Threshold to avoid jitter near target 
+float threshold = 5.0; 
+ 
+if (abs(dx) < threshold && abs(dy) < threshold) { 
+// Close enough to target 
+motor1_speed = 0; 
+motor2_speed = 0; 
+Serial.println("Reached Target"); 
+} else if (abs(dx) > abs(dy)) { 
+// Turn left or right 
+if (dx > 0) { 
+Serial.println("Turning Right"); 
+motor1_speed = 100; 
+motor2_speed = -100; 
+} else { 
+Serial.println("Turning Left"); 
+motor1_speed = -100; 
+motor2_speed = 100; 
+} 
+} else { 
+// Move forward or backward 
+if (dy > 0) { 
+Serial.println("Moving Forward"); 
+motor1_speed = 100; 
+    
+  
+motor2_speed = 100; 
+} else { 
+Serial.println("Moving Backward"); 
+motor1_speed = -100; 
+motor2_speed = -100; 
+} 
+} 
+ 
+// Control LED 
+if (motor1_speed != 0 || motor2_speed != 0) { 
+digitalWrite(LED_PIN, HIGH); 
+} else { 
+digitalWrite(LED_PIN, LOW); 
+} 
+ 
+// TODO: Replace below lines with actual motor control logic (PWM/digitalWrite) 
+Serial.printf("Motor1: %d, Motor2: %d\n", motor1_speed, motor2_speed); 
+} 
+ 
+// ESP-NOW receive callback 
+void OnDataRecv(const esp_now_recv_info_t *info, const uint8_t *data, int len) { 
+if (len == sizeof(struct_message)) { 
+memcpy(&incomingData, data, sizeof(incomingData)); 
+moveToTarget(incomingData.current_x, incomingData.current_y, 
+incomingData.target_x, incomingData.target_y); 
+} else { 
+Serial.println("Invalid data received"); 
+} 
+} 
+ 
+void setup() { 
+Serial.begin(115200); 
+pinMode(LED_PIN, OUTPUT); 
+digitalWrite(LED_PIN, LOW); 
+    
+  
+ 
+WiFi.mode(WIFI_STA); 
+ 
+if (esp_now_init() != ESP_OK) { 
+Serial.println("ESP-NOW Init Failed"); 
+return; 
+} 
+ 
+esp_now_register_recv_cb(OnDataRecv); 
+ 
+Serial.println("ESP-NOW Bot Receiver Ready"); 
+} 
+ 
+void loop() { 
+// Nothing needed in loop

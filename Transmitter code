@@ -1,0 +1,91 @@
+#include <esp_now.h> 
+  
+26  
+  
+#include <WiFi.h> 
+ 
+typedef struct struct_message { 
+int target_x; 
+int target_y; 
+int bot_x; 
+int bot_y; 
+} struct_message; 
+ 
+struct_message outgoingData; 
+ 
+// Replace with your receiver ESP32 MAC address (6 bytes) 
+uint8_t receiverAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; 
+// <-- CHANGE THIS! 
+ 
+void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) { 
+Serial.print("Send Status: "); 
+Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail"); 
+} 
+ 
+void setup() { 
+Serial.begin(115200); 
+WiFi.mode(WIFI_STA); 
+ 
+if (esp_now_init() != ESP_OK) { 
+Serial.println("ESP-NOW Init Failed"); 
+while (true) { delay(1000); } 
+} 
+ 
+esp_now_register_send_cb(OnDataSent); 
+ 
+esp_now_peer_info_t peerInfo = {}; 
+memcpy(peerInfo.peer_addr, receiverAddress, 6); 
+peerInfo.channel = 0; 
+   
+  
+peerInfo.encrypt = false; 
+ 
+if (esp_now_add_peer(&peerInfo) != ESP_OK) { 
+Serial.println("Failed to add peer"); 
+while (true) { delay(1000); } 
+} 
+ 
+Serial.println("Ready to send target & bot positions."); 
+Serial.println("Enter 4 integers separated by spaces:"); 
+Serial.println("target_x target_y bot_x bot_y"); 
+Serial.println("Example: 500 300 100 150"); 
+} 
+ 
+void loop() { 
+if (Serial.available()) { 
+String input = Serial.readStringUntil('\n'); 
+input.trim(); 
+ 
+// Split input into 4 parts 
+int firstSpace = input.indexOf(' '); 
+int secondSpace = input.indexOf(' ', firstSpace + 1); 
+int thirdSpace = input.indexOf(' ', secondSpace + 1); 
+ 
+if (firstSpace == -1 || secondSpace == -1 || thirdSpace == -1) { 
+Serial.println("Invalid input. Format: target_x target_y bot_x bot_y"); 
+return; 
+} 
+ 
+String targetX_str = input.substring(0, firstSpace); 
+String targetY_str = input.substring(firstSpace + 1, secondSpace); 
+String botX_str = input.substring(secondSpace + 1, thirdSpace); 
+String botY_str = input.substring(thirdSpace + 1); 
+ 
+outgoingData.target_x = targetX_str.toInt(); 
+  
+  
+outgoingData.target_y = targetY_str.toInt(); 
+outgoingData.bot_x = botX_str.toInt(); 
+outgoingData.bot_y = botY_str.toInt(); 
+ 
+esp_err_t result = esp_now_send(receiverAddress, (uint8_t *)&outgoingData, 
+sizeof(outgoingData)); 
+if (result == ESP_OK) { 
+Serial.printf("Sent: target(%d,%d) bot(%d,%d)\n", 
+outgoingData.target_x, outgoingData.target_y, outgoingData.bot_x, 
+outgoingData.bot_y); 
+} else { 
+Serial.println("Send Error"); 
+} 
+} 
+} 
